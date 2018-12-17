@@ -152,6 +152,7 @@ import org.apache.rocketmq.remoting.protocol.LanguageCode;
 import org.apache.rocketmq.remoting.protocol.RemotingCommand;
 import org.apache.rocketmq.remoting.protocol.RemotingSerializable;
 
+// @ovo@ 实现消息的收发
 public class MQClientAPIImpl {
 
     private final static InternalLogger log = ClientLogger.getLog();
