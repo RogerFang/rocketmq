@@ -563,6 +563,9 @@ public class MQClientInstance {
         }
     }
 
+    /**
+     * // @ovo@ 使用 default topic, 当 Broker 开启自动创建 Topic开关时, Broker 接收到消息后自动创建Topic
+     */
     public boolean updateTopicRouteInfoFromNameServer(final String topic, boolean isDefault,
         DefaultMQProducer defaultMQProducer) {
         try {

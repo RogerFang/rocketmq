@@ -24,11 +24,13 @@ import org.apache.rocketmq.common.message.MessageQueue;
 
 public class MQFaultStrategy {
     private final static InternalLogger log = ClientLogger.getLog();
+    // @ovo@ 延迟故障容错, 维护每个Broker的发送消息的延迟. key: brokerName
     private final LatencyFaultTolerance<String> latencyFaultTolerance = new LatencyFaultToleranceImpl();
-
+    // @ovo@ 发送消息延迟容错开关
     private boolean sendLatencyFaultEnable = false;
-
+    // @ovo@ 延迟级别数组
     private long[] latencyMax = {50L, 100L, 550L, 1000L, 2000L, 3000L, 15000L};
+    // @ovo@ 不可用时长数组
     private long[] notAvailableDuration = {0L, 0L, 30000L, 60000L, 120000L, 180000L, 600000L};
 
     public long[] getNotAvailableDuration() {
@@ -55,9 +57,13 @@ public class MQFaultStrategy {
         this.sendLatencyFaultEnable = sendLatencyFaultEnable;
     }
 
+    /**
+     * // @ovo@ 根据topic选择一个消息队列
+     */
     public MessageQueue selectOneMessageQueue(final TopicPublishInfo tpInfo, final String lastBrokerName) {
         if (this.sendLatencyFaultEnable) {
             try {
+                // @ovo@ 获取 brokerName=lastBrokerName && 可用的一个消息队列
                 int index = tpInfo.getSendWhichQueue().getAndIncrement();
                 for (int i = 0; i < tpInfo.getMessageQueueList().size(); i++) {
                     int pos = Math.abs(index++) % tpInfo.getMessageQueueList().size();
@@ -69,7 +75,7 @@ public class MQFaultStrategy {
                             return mq;
                     }
                 }
-
+                // @ovo@ 选择一个相对好的broker，并获得其对应的一个消息队列，不考虑该队列的可用性
                 final String notBestBroker = latencyFaultTolerance.pickOneAtLeast();
                 int writeQueueNums = tpInfo.getQueueIdByBroker(notBestBroker);
                 if (writeQueueNums > 0) {
@@ -85,13 +91,20 @@ public class MQFaultStrategy {
             } catch (Exception e) {
                 log.error("Error occurred when selecting message queue", e);
             }
-
+            // @ovo@ 选择一个消息队列，不考虑队列的可用性
             return tpInfo.selectOneMessageQueue();
         }
-
+        // @ovo@ 获得 lastBrokerName 对应的一个消息队列，不考虑该队列的可用性
         return tpInfo.selectOneMessageQueue(lastBrokerName);
     }
 
+    /**
+     * // @ovo@ 更新延迟容错信息
+     *
+     * @param brokerName brokerName
+     * @param currentLatency 延迟
+     * @param isolation 是否隔离。当开启隔离时，默认延迟为30000。目前主要用于发送消息异常时
+     */
     public void updateFaultItem(final String brokerName, final long currentLatency, boolean isolation) {
         if (this.sendLatencyFaultEnable) {
             long duration = computeNotAvailableDuration(isolation ? 30000 : currentLatency);
@@ -99,6 +112,11 @@ public class MQFaultStrategy {
         }
     }
 
+    /**
+     * // @ovo@ 计算延迟对应的不可用时间
+     * @param currentLatency 延迟
+     * @return 不可用时间
+     */
     private long computeNotAvailableDuration(final long currentLatency) {
         for (int i = latencyMax.length - 1; i >= 0; i--) {
             if (currentLatency >= latencyMax[i])
